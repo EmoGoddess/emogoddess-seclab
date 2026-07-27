@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Moderation queue | EGTCG{% endblock %}
+{% block content %}
+<section class="welcome"><h1>Moderation queue</h1>
+  <p class="sub">Reports awaiting staff review.</p>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Reports</h2></div>
+  {% for r in reports %}
+  <div class="report-item">
+    <div class="muted-note">#{{ r['id'] }} from {{ r['author'] }} · {{ r['ts'][:19] }}</div>
+    <div class="report-preview">{{ r['content']|safe }}</div>
+  </div>
+  {% else %}
+  <p class="empty">No reports.</p>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,4 @@
+EG Collector Note #001
+
+Card lore and trade notes are stored in this folder as plain text files.
+Load any note by its filename with the "Load card note" tool.

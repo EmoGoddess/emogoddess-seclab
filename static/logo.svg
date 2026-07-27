@@ -1,0 +1,13 @@
+<svg viewBox="0 0 260 84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EGTCG">
+  <defs>
+    <clipPath id="box"><rect x="4" y="10" width="252" height="64" rx="16"/></clipPath>
+  </defs>
+  <rect x="4" y="10" width="252" height="64" rx="16" fill="#ffffff"/>
+  <g clip-path="url(#box)">
+    <path d="M-20 78 L60 6" stroke="#8b5cf6" stroke-width="10" opacity="0.9"/>
+    <path d="M-4 82 L76 10" stroke="#b8a6ff" stroke-width="6" opacity="0.85"/>
+    <path d="M200 82 L280 10" stroke="#8b5cf6" stroke-width="10" opacity="0.9"/>
+    <path d="M214 84 L294 12" stroke="#b8a6ff" stroke-width="6" opacity="0.85"/>
+  </g>
+  <text x="130" y="54" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="38" font-weight="900" letter-spacing="2" fill="#101014">EGTCG</text>
+</svg>

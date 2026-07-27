@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Report a card | EGTCG{% endblock %}
+{% block content %}
+<section class="welcome"><h1>Report a card</h1>
+  <p class="sub">Something wrong with a card listing? Send it to the moderators for review.</p>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Your report</h2></div>
+  <form method="post" action="{{ url_for('report_card') }}">
+    <div class="devtool-row" style="max-width:520px;">
+      <input type="text" name="content" placeholder="Describe the problem with the card...">
+      <button type="submit" class="btn-small">Submit report</button>
+    </div>
+  </form>
+
+  {% if preview %}
+  <div class="uploads">
+    <h3>Preview</h3>
+    <div class="report-preview">{{ preview|safe }}</div>
+  </div>
+  {% endif %}
+
+  {% if submitted %}
+  <p class="muted-note" style="margin-top:12px;">Thanks. A moderator will review your report shortly.</p>
+  {% endif %}
+</section>
+{% endblock %}

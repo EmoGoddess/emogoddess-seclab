@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}EGTCG{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">
+      <img class="brand-logo" src="{{ url_for('static', filename='logo.svg') }}" alt="EGTCG">
+    </a>
+    {% if session.get('username') %}
+    <nav class="topnav">
+      <a class="btn-link" href="{{ url_for('flags_page') }}">Flags</a>
+      <a class="btn-link" href="{{ url_for('report_card') }}">Report</a>
+      <a class="btn-link" href="{{ url_for('soc') }}">SOC</a>
+      <span class="who">{{ session['username'] }}</span>
+      <a class="btn-link" href="{{ url_for('logout') }}">Sign out</a>
+    </nav>
+    {% endif %}
+  </header>
+  <main class="wrap">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="foot"><span class="foot-brand">EGTCG</span><span class="foot-credit">Security Lab</span></footer>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# Secrets and flags, regenerated locally by init_db.py
+secret/
+backup/eg_token.bak
+static/eg_pub.pem
+
+# Runtime and generated
+data/*.db
+logs/
+static/uploads/
+static/art/*.png
+static/art/*.jpg
+
+# Scratch and exploit files
+evil.pkl
+exploit.py
+gen.py
+c.txt
+cookies.txt
+*.bak
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Flags | EGTCG{% endblock %}
+{% block content %}
+<section class="welcome">
+  <h1>Challenge flags</h1>
+  <p class="sub">Progress: <span id="eg-progress-count">{{ solved_count }}</span> / {{ total }} solved</p>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Submit a flag</h2>
+    <span class="muted-note">format: EG{...}</span>
+  </div>
+  <form id="eg-flag-form" class="upload">
+    <input id="eg-flag-input" placeholder="EG{...}" autocomplete="off" style="min-width:280px;">
+    <button type="submit" class="btn-small">Submit</button>
+    <span id="eg-flag-msg" class="muted-note"></span>
+  </form>
+</section>
+
+{% for g in groups %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>{{ g.name }}</h2>
+    <span class="muted-note">{{ g.done }} / {{ g.total }} solved</span>
+  </div>
+  <div class="flag-grid">
+    {% for it in g.challenges %}
+    <article class="flag-card {{ 'done' if it.solved else '' }}" data-id="{{ it.id }}">
+      <div class="flag-card-head">
+        <span class="flag-status">{{ '✅' if it.solved else '\U0001F512' }}</span>
+        <span class="flag-name">{{ it.name }}</span>
+        <span class="diff diff-{{ it.difficulty|lower }}">{{ it.difficulty }}</span>
+      </div>
+      <div class="flag-owasp">{{ it.owasp }}</div>
+      <button type="button" class="hint-toggle btn-small">View hint</button>
+      <p class="flag-hint" hidden>{{ it.hint }}</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<section class="panel">
+  <div class="panel-head"><h2>OWASP coverage</h2><span class="muted-note">what this lab maps to</span></div>
+  <div class="coverage">
+    {% for group in coverage %}
+    <div class="coverage-group">
+      <h3>{{ group[0] }}</h3>
+      <ul>
+        {% for item in group[1] %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<script>
+// reveal a hint only on demand
+document.querySelectorAll(".hint-toggle").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const hint = btn.nextElementSibling;
+    const shown = !hint.hidden;
+    hint.hidden = shown;
+    btn.textContent = shown ? "View hint" : "Hide hint";
+  });
+});
+
+const form = document.getElementById("eg-flag-form");
+const input = document.getElementById("eg-flag-input");
+const msg = document.getElementById("eg-flag-msg");
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const flag = input.value.trim();
+  if (!flag) return;
+  const r = await fetch("/api/progress/submit", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({flag}),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    msg.textContent = "Correct! (" + d.challenge + ")";
+    msg.style.color = "var(--platinum)";
+    const card = document.querySelector('.flag-card[data-id="' + d.challenge + '"]');
+    if (card) {
+      card.classList.add("done");
+      card.querySelector(".flag-status").textContent = "✅";
+    }
+    document.getElementById("eg-progress-count").textContent = d.solved.length;
+    input.value = "";
+  } else {
+    msg.textContent = d.msg || "Wrong flag.";
+    msg.style.color = "var(--danger)";
+  }
+});
+</script>
+{% endblock %}

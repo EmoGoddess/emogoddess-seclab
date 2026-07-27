@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Collection | EGTCG{% endblock %}
+{% block content %}
+<section class="welcome"><h1>Welcome back, {{ username }}</h1></section>
+
+{% if admin_flag %}
+<section class="panel">
+  <div class="panel-head"><h2>Admin console</h2><span class="muted-note">restricted</span></div>
+  <p class="muted-note">Privileged account verified. Vault token:</p>
+  <p class="flag-reveal">{{ admin_flag }}</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>My collection</h2>
+    <div class="panel-actions">
+      <form class="upload" method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+        <input type="file" name="card_image" accept="image/*">
+        <button type="submit" class="btn-small">Upload art</button>
+      </form>
+      <form class="upload" method="post" action="{{ url_for('import_collection') }}" enctype="multipart/form-data">
+        <input type="file" name="collection">
+        <button type="submit" class="btn-small">Import collection</button>
+      </form>
+    </div>
+  </div>
+  {% if import_result %}
+  <div class="uploads">
+    <h3>Imported</h3>
+    <pre class="muted-note" style="white-space:pre-wrap;">{{ import_result }}</pre>
+  </div>
+  {% endif %}
+  <div class="collection">
+    {% for c in collection %}
+    <article class="card-face {{ c['rarity']|lower }}">
+      <div class="card-top"><span class="card-id">{{ c['card_id'] }}</span><span class="card-rarity">{{ c['rarity'] }}</span></div>
+      <div class="card-mono">EG</div>
+      <div class="card-name">{{ c['name'] }}</div>
+      <div class="card-power">PWR {{ c['power'] }}</div>
+    </article>
+    {% else %}<p class="empty">No cards yet.</p>{% endfor %}
+  </div>
+  {% if uploaded %}
+  <div class="uploads"><h3>Uploaded art</h3><div class="upload-grid">
+    {% for u in uploaded %}<img src="{{ url_for('static', filename='uploads/' ~ u) }}" alt="{{ u }}">{% endfor %}
+  </div></div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Market</h2>
+    <div class="devtool-row" style="max-width:320px;">
+      <input id="eg-market-search" type="text" placeholder="Search cards...">
+      <button id="eg-market-search-btn" class="btn-small" type="button">Search</button>
+    </div>
+  </div>
+  <div id="eg-search-results" class="muted-note"></div>
+  <div class="collection">
+    {% for c in market %}
+    <article class="card-face {{ c['rarity']|lower }}">
+      <div class="card-top"><span class="card-id">{{ c['card_id'] }}</span><span class="card-rarity">{{ c['rarity'] }}</span></div>
+      <div class="card-mono">EG</div>
+      <div class="card-name">{{ c['name'] }}</div>
+      <div class="card-power">PWR {{ c['power'] }}</div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Developer tools</h2><span class="muted-note">internal API helpers</span></div>
+  <div class="devtools">
+    <div class="devtool">
+      <label>Fetch art from URL</label>
+      <div class="devtool-row">
+        <input id="eg-art-url" type="text" placeholder="https://example.com/card.png">
+        <button id="eg-art-fetch" class="btn-small" type="button">Fetch</button>
+      </div>
+      <pre id="eg-art-result" class="devtool-out"></pre>
+    </div>
+    <div class="devtool">
+      <label>Load card note</label>
+      <div class="devtool-row">
+        <input id="eg-file-name" type="text" placeholder="collector-note.txt">
+        <button id="eg-file-load" class="btn-small" type="button">Load</button>
+      </div>
+      <pre id="eg-file-result" class="devtool-out"></pre>
+    </div>
+    <div class="devtool">
+      <label>API session token</label>
+      <div class="devtool-row">
+        <button id="eg-gen-token" class="btn-small" type="button">Generate token</button>
+      </div>
+      <pre id="eg-token-result" class="devtool-out"></pre>
+    </div>
+  </div>
+</section>
+
+<div id="eg-chat">
+  <button id="eg-chat-toggle" aria-label="Assistant">AI</button>
+  <div id="eg-chat-panel" hidden>
+    <div class="eg-chat-head">Collection assistant</div>
+    <div id="eg-chat-log"></div>
+    <form id="eg-chat-form">
+      <input id="eg-chat-input" autocomplete="off" placeholder="Ask about adding cards...">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+{% endblock %}

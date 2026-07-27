@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}SOC | EGTCG{% endblock %}
+{% block content %}
+<section class="welcome">
+  <h1>SOC console</h1>
+  <p class="sub">Real time monitoring · analyst <strong>{{ username }}</strong>
+    <span id="soc-live" class="soc-live">● live</span></p>
+</section>
+
+<div class="soc-stats">
+  <div class="stat-tile"><span class="stat-num" id="st-total">0</span><span class="stat-label">events</span></div>
+  <div class="stat-tile crit"><span class="stat-num" id="st-crit">0</span><span class="stat-label">critical</span></div>
+  <div class="stat-tile warn"><span class="stat-num" id="st-warn">0</span><span class="stat-label">warnings</span></div>
+  <div class="stat-tile"><span class="stat-num" id="st-ips">0</span><span class="stat-label">unique IPs</span></div>
+  <div class="stat-tile"><span class="stat-num" id="st-blocked">0</span><span class="stat-label">blocked</span></div>
+  <div class="stat-tile"><span class="stat-num" id="st-tickets">0</span><span class="stat-label">open tickets</span></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Event feed</h2>
+    <div class="panel-actions">
+      <div class="soc-filters">
+        <button class="filter-btn active" data-sev="all">All</button>
+        <button class="filter-btn" data-sev="critical">Critical</button>
+        <button class="filter-btn" data-sev="warn">Warn</button>
+        <button class="filter-btn" data-sev="info">Info</button>
+      </div>
+      <input id="soc-search" type="text" placeholder="Filter by IP, user, action...">
+      <label class="muted-note"><input type="checkbox" id="soc-auto" checked> auto refresh</label>
+    </div>
+  </div>
+  <div class="soc-table-wrap">
+    <table class="soc-table">
+      <thead><tr>
+        <th data-sort="ts">Time (UTC)<span class="sort-arr"></span></th>
+        <th data-sort="ip">IP<span class="sort-arr"></span></th>
+        <th data-sort="username">User<span class="sort-arr"></span></th>
+        <th data-sort="action">Action<span class="sort-arr"></span></th>
+        <th data-sort="severity">Sev<span class="sort-arr"></span></th>
+        <th data-sort="detail">Detail<span class="sort-arr"></span></th>
+        <th></th>
+      </tr></thead>
+      <tbody id="soc-events"></tbody>
+    </table>
+  </div>
+</section>
+
+<div class="soc-cols">
+  <section class="panel">
+    <div class="panel-head"><h2>Blocked IPs</h2></div>
+    <form id="soc-block-form" class="upload">
+      <input id="soc-block-ip" placeholder="203.0.113.5" autocomplete="off">
+      <button class="btn-small" type="submit">Block</button>
+    </form>
+    <ul id="soc-blocked" class="soc-list"></ul>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Tickets</h2></div>
+    <ul id="soc-tickets" class="soc-list"></ul>
+  </section>
+</div>
+
+<div id="tk-modal" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <h3>New incident ticket</h3>
+    <label>Title
+      <input id="tk-title" type="text">
+    </label>
+    <label>Description
+      <textarea id="tk-desc" rows="3" placeholder="What happened, impact, next steps..."></textarea>
+    </label>
+    <div class="tk-row">
+      <label>Severity
+        <select id="tk-sev">
+          <option>low</option><option>medium</option>
+          <option selected>high</option><option>critical</option>
+        </select>
+      </label>
+      <label>MITRE technique
+        <input id="tk-mitre" type="text" list="mitre-list" placeholder="Search T... or AML...">
+        <datalist id="mitre-list"></datalist>
+      </label>
+    </div>
+    <input type="hidden" id="tk-action"><input type="hidden" id="tk-eid">
+    <div class="modal-actions">
+      <button class="btn-ghost" id="tk-cancel" type="button">Cancel</button>
+      <button class="btn-red" id="tk-save" type="button">Create ticket</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let events = [], seen = new Set(), lastId = 0;
+let sortKey = "ts", sortDir = "desc", sevFilter = "all", search = "";
+const evBody = document.getElementById("soc-events");
+
+function post(url, body) {
+  return fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+function sevRank(s) { return {critical: 3, warn: 2, info: 1}[s] || 0; }
+function rowText(ev) { return ((ev.ip || "") + " " + (ev.username || "") + " " + (ev.action || "") + " " + (ev.detail || "")).toLowerCase(); }
+
+function rowHtml(ev) {
+  const sev = ev.severity || "info";
+  return "<tr class='sev-" + sev + "'>" +
+    "<td>" + esc((ev.ts || "").replace("T", " ").slice(0, 19)) + "</td>" +
+    "<td>" + esc(ev.ip || "-") + "</td>" +
+    "<td>" + esc(ev.username || "-") + "</td>" +
+    "<td>" + esc(ev.action) + "</td>" +
+    "<td><span class='pill sev-" + sev + "'>" + sev + "</span></td>" +
+    "<td>" + esc(ev.detail || "") + "</td>" +
+    "<td class='soc-row-actions'>" +
+      "<button class='btn-small' data-block='" + esc(ev.ip || "") + "'>Block</button>" +
+      "<button class='btn-small' data-ticket='" + esc(ev.action) + "' data-tip='" + esc(ev.ip || "") +
+        "' data-sev='" + esc(ev.severity || "high") + "' data-mitre='" + esc(ev.mitre || "") + "'>Ticket</button>" +
+    "</td></tr>";
+}
+
+function render() {
+  let list = events.filter(ev =>
+    (sevFilter === "all" || ev.severity === sevFilter) &&
+    (!search || rowText(ev).includes(search)));
+  list.sort((a, b) => {
+    let va, vb;
+    if (sortKey === "severity") { va = sevRank(a.severity); vb = sevRank(b.severity); }
+    else if (sortKey === "ts") { va = a.id; vb = b.id; }
+    else { va = (a[sortKey] || "").toString().toLowerCase(); vb = (b[sortKey] || "").toString().toLowerCase(); }
+    if (va < vb) return sortDir === "asc" ? -1 : 1;
+    if (va > vb) return sortDir === "asc" ? 1 : -1;
+    return 0;
+  });
+  evBody.innerHTML = list.map(rowHtml).join("");
+  document.querySelectorAll(".soc-table th[data-sort]").forEach(th => {
+    const arr = th.querySelector(".sort-arr");
+    arr.textContent = th.dataset.sort === sortKey ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+  });
+}
+
+async function poll() {
+  const d = await (await fetch("/api/soc/events?since=" + lastId)).json();
+  (d.events || []).forEach(ev => {
+    if (seen.has(ev.id)) return;
+    seen.add(ev.id);
+    if (ev.id > lastId) lastId = ev.id;
+    events.push(ev);
+  });
+  const s = d.stats || {};
+  document.getElementById("st-total").textContent = s.total || 0;
+  document.getElementById("st-crit").textContent = s.critical || 0;
+  document.getElementById("st-warn").textContent = s.warn || 0;
+  document.getElementById("st-ips").textContent = s.ips || 0;
+  document.getElementById("st-blocked").textContent = (d.blocked || []).length;
+  document.getElementById("st-tickets").textContent = s.open_tickets || 0;
+
+  document.getElementById("soc-blocked").innerHTML = (d.blocked || []).map(ip =>
+    "<li>" + esc(ip) + " <button class='btn-small' data-unblock='" + esc(ip) + "'>unblock</button></li>"
+  ).join("") || "<li class='muted-note'>none</li>";
+
+  document.getElementById("soc-tickets").innerHTML = (d.tickets || []).map(t => {
+    let btns = "";
+    if (t.status === "open")
+      btns = "<button class='btn-small' data-status='investigating' data-tid='" + t.id + "'>Investigate</button>" +
+             "<button class='btn-small' data-status='resolved' data-tid='" + t.id + "'>Resolve</button>";
+    else if (t.status === "investigating")
+      btns = "<button class='btn-small' data-status='resolved' data-tid='" + t.id + "'>Resolve</button>";
+    return "<li class='ticket'><div class='ticket-head'><span class='pill sev-" + esc(t.severity) + "'>" +
+      esc(t.severity) + "</span> #" + t.id + " " + esc(t.title) +
+      " <span class='ticket-status s-" + esc(t.status) + "'>" + esc(t.status) + "</span></div>" +
+      (t.mitre ? "<div class='mitre-tag'>" + esc(t.mitre) + "</div>" : "") +
+      (t.description ? "<div class='ticket-desc'>" + esc(t.description) + "</div>" : "") +
+      (btns ? "<div class='ticket-actions'>" + btns + "</div>" : "") + "</li>";
+  }).join("") || "<li class='muted-note'>none</li>";
+
+  render();
+}
+
+// sortable headers
+document.querySelectorAll(".soc-table th[data-sort]").forEach(th => th.addEventListener("click", () => {
+  const k = th.dataset.sort;
+  if (sortKey === k) sortDir = sortDir === "asc" ? "desc" : "asc";
+  else { sortKey = k; sortDir = "desc"; }
+  render();
+}));
+
+// severity filters and search
+document.querySelectorAll(".filter-btn").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".filter-btn").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  sevFilter = b.dataset.sev;
+  render();
+}));
+document.getElementById("soc-search").addEventListener("input", e => {
+  search = e.target.value.trim().toLowerCase();
+  render();
+});
+
+// manual block
+document.getElementById("soc-block-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const ip = document.getElementById("soc-block-ip").value.trim();
+  if (!ip) return;
+  await post("/api/soc/block", {ip, action: "block"});
+  document.getElementById("soc-block-ip").value = "";
+  poll();
+});
+
+// ticket modal
+const modal = document.getElementById("tk-modal");
+function openTicket(b) {
+  document.getElementById("tk-action").value = b.dataset.ticket || "";
+  document.getElementById("tk-eid").value = "";
+  document.getElementById("tk-title").value = (b.dataset.ticket || "incident") + " from " + (b.dataset.tip || "?");
+  document.getElementById("tk-desc").value = "";
+  document.getElementById("tk-sev").value = b.dataset.sev || "high";
+  document.getElementById("tk-mitre").value = b.dataset.mitre || "";
+  modal.hidden = false;
+  document.getElementById("tk-desc").focus();
+}
+document.getElementById("tk-cancel").addEventListener("click", () => modal.hidden = true);
+modal.addEventListener("click", e => { if (e.target === modal) modal.hidden = true; });
+document.getElementById("tk-save").addEventListener("click", async () => {
+  await post("/api/soc/ticket", {
+    title: document.getElementById("tk-title").value.trim(),
+    description: document.getElementById("tk-desc").value.trim(),
+    severity: document.getElementById("tk-sev").value,
+    mitre: document.getElementById("tk-mitre").value.trim(),
+    action: document.getElementById("tk-action").value,
+  });
+  modal.hidden = true;
+  poll();
+});
+
+// populate the MITRE search list
+fetch("/api/soc/mitre").then(r => r.json()).then(list => {
+  document.getElementById("mitre-list").innerHTML =
+    list.map(t => "<option value='" + esc(t) + "'></option>").join("");
+});
+
+// delegated row actions
+document.addEventListener("click", async e => {
+  const b = e.target;
+  if (b.dataset.block) { await post("/api/soc/block", {ip: b.dataset.block, action: "block"}); poll(); }
+  else if (b.dataset.unblock) { await post("/api/soc/block", {ip: b.dataset.unblock, action: "unblock"}); poll(); }
+  else if (b.dataset.ticket) { openTicket(b); }
+  else if (b.dataset.status) { await post("/api/soc/ticket/status", {ticket_id: Number(b.dataset.tid), status: b.dataset.status}); poll(); }
+});
+
+setInterval(() => { if (document.getElementById("soc-auto").checked) poll(); }, 2000);
+poll();
+</script>
+{% endblock %}
