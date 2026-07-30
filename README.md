@@ -40,7 +40,7 @@ page.
 
 Every security event goes to two places.
 
-- **In app console.** Sign in as `EGSoc` / `soc-console-2026` and open `/soc` for
+- **In app console.** Open `/soc` for
   a live feed, IP blocking, and tickets.
 - **JSON log.** `logs/access.log` holds one JSON object per line with the fields
   `action`, `severity`, `ip`, `user`, `method`, `path`.
